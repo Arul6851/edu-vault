@@ -28,12 +28,12 @@ export default function Dashboard() {
           <Text style={styles.cardText}>Study Sessions</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card} onPress={() => {}}>
+        <TouchableOpacity style={styles.card} onPress={() => router.push('/discussion-zone')}>
           <Image source={require('../assets/images/dis-zon.png')} style={styles.cardImage} />
           <Text style={styles.cardText}>Discussion Zone</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card} onPress={() => {}}>
+        <TouchableOpacity style={styles.card} onPress={() => router.push('/planner')}>
           <Image source={require('../assets/images/plan.png')} style={styles.cardImage} />
           <Text style={styles.cardText}>Planner</Text>
         </TouchableOpacity>

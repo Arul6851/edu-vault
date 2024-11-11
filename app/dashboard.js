@@ -18,12 +18,12 @@ export default function Dashboard() {
 
       {/* Grid of Buttons with Images */}
       <View style={styles.gridContainer}>
-        <TouchableOpacity style={styles.card} onPress={() => {}}>
+        <TouchableOpacity style={styles.card} onPress={() => router.push('/reference-materials')}>
           <Image source={require('../assets/images/ref-mat.png')} style={styles.cardImage} />
           <Text style={styles.cardText}>Reference Materials</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card} onPress={() => {}}>
+        <TouchableOpacity style={styles.card} onPress={() => router.push('/study-sessions')}>
           <Image source={require('../assets/images/stu-ses.png')} style={styles.cardImage} />
           <Text style={styles.cardText}>Study Sessions</Text>
         </TouchableOpacity>

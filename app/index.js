@@ -1,21 +1,49 @@
 import { useState } from 'react';
 import { View, TextInput, Button, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
+import { config } from 'dotenv';
 
 export default function Login() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // if (username && password) {
-    //   router.push('/dashboard');
-    // } else {
-    //   alert('Please enter valid credentials');
-    // }
-    router.push('/dashboard');
+  const handleLogin = async () => {
+    try {
+      // Sending the POST request with username and password
+      const response = await fetch(
+        `http://localhost:5500/api/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            rollno: username,
+            pass: password,
+          }),
+        }
+      );
+  
+      // Check if the response is successful
+      if (response.ok) {
+        const data = await response.json();  // Parse the JSON response
+        console.log(data.message);  // Log the message from the server (optional)
+  
+        // Redirect to the dashboard or another page if login is successful
+        router.push('/dashboard');
+      } else {
+        // If the response is not OK (error), parse the error message and alert the user
+        const errorData = await response.json();
+        window.alert(errorData.message || "Login failed, please try again.");
+      }
+    } catch (error) {
+      // Catch any network errors and alert the user
+      console.error("Error during login:", error);
+      window.alert("An error occurred while trying to log in. Please try again.");
+    }
   };
-
+  
   return (
     <View style={styles.container}>
       <Image source={require("../assets/images/edu-vault.png")} style={styles.logo} />
@@ -42,7 +70,7 @@ export default function Login() {
       </TouchableOpacity>
 
       <Text style={styles.footerText}>Don’t have an account? 
-        <Text style={styles.signUpText} onPress={() => alert('Sign up')}> Sign up</Text>
+        <Text style={styles.signUpText} onPress={() => router.push("/signup")}> Sign up</Text>
       </Text>
     </View>
   );

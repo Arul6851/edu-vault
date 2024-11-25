@@ -1,81 +1,171 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 
 const DiscussionZone = () => {
   const router = useRouter();
-  
-  // Local state to store the discussion topics and replies
-  const [topics, setTopics] = useState([
-    { id: '1', title: 'How to solve linear equations?', replies: ['Use substitution or elimination methods.', 'Try graphing method.'] },
-    { id: '2', title: 'Best practices for React development?', replies: ['Use hooks for state management.', 'Follow component-based architecture.'] },
-    { id: '3', title: 'What is the difference between front-end and back-end development?', replies: ['Front-end deals with the user interface, back-end handles server-side logic.', 'Front-end uses HTML, CSS, JS, while back-end uses languages like Python, Java, etc.'] },
-    { id: '4', title: 'How can I improve my coding skills?', replies: ['Practice consistently on platforms like LeetCode, HackerRank.', 'Read code written by others to understand different approaches.'] },
-    { id: '5', title: 'What is Agile methodology?', replies: ['Agile focuses on iterative development and flexibility.', 'It emphasizes collaboration, customer feedback, and rapid delivery.'] },
-  ]);
-  
-  const [newTopic, setNewTopic] = useState('');
-  const [newReply, setNewReply] = useState('');
-  const [expandedTopicId, setExpandedTopicId] = useState(null); // Track expanded topic ID for dropdown effect
+
+  const [topics, setTopics] = useState([]);  // Store questions and their replies
+  const [newTopic, setNewTopic] = useState('');  // New topic input
+  const [newReply, setNewReply] = useState('');  // New reply input
+  const [expandedTopicId, setExpandedTopicId] = useState(null);  // Track expanded topic for toggling replies
+  const [replies, setReplies] = useState({});  // Store replies for each topic by ID
+
+  // Fetch all questions when the component is mounted
+  useEffect(() => {
+    const fetchTopics = async () => {
+      try {
+        const response = await fetch('http://localhost:5500/api/questions');
+        const data = await response.json();
+
+        if (response.ok) {
+          // Set the topics with empty replies initially
+          const topicsWithReplies = data.map(topic => ({
+            ...topic,
+            replies: [],  // Initialize with an empty array for replies
+          }));
+          setTopics(topicsWithReplies); // Update the topics state
+        } else {
+          console.error('Failed to fetch questions:', data.message || 'Unknown error');
+        }
+      } catch (error) {
+        console.error('Error during fetch:', error);
+      }
+    };
+
+    fetchTopics();
+  }, []);
 
   // Function to handle adding a new topic
-  const handleAddTopic = () => {
-    if (newTopic.trim()) {
-      setTopics([
-        ...topics,
-        { id: String(topics.length + 1), title: newTopic, replies: [] }
-      ]);
-      setNewTopic('');
+  const handleAddTopic = async () => {
+    if (!newTopic.trim()) {
+      window.alert("Please enter a valid question.");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5500/api/questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: newTopic }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTopics([
+          ...topics,
+          { id: data.question.id, question: newTopic, replies: [] },  // Initialize replies as an empty array
+        ]);
+      } else {
+        const data = await response.json();
+        window.alert(data.message || "Failed to create the question.");
+      }
+    } catch (error) {
+      console.error("Error during adding topic:", error);
+      window.alert("An error occurred while posting the question.");
+    }
+
+    setNewTopic('');  // Clear input field after submission
+  };
+
+  // Function to fetch replies for a specific topic (question)
+  const fetchReplies = async (topicId) => {
+    try {
+      const response = await fetch(`http://localhost:5500/api/answers?questionID=${topicId}`);
+      const repliesData = await response.json();
+
+      if (response.ok) {
+        // Store the replies for the specific topic ID
+        setReplies(prevReplies => ({
+          ...prevReplies,
+          [topicId]: repliesData || [],  // Update the replies for the topic
+        }));
+      } else {
+        console.error('Failed to fetch replies:', repliesData.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Error during fetching replies:', error);
     }
   };
 
   // Function to handle adding a reply to a topic
-  const handleAddReply = (topicId) => {
-    if (newReply.trim()) {
-      setTopics(topics.map(topic => {
-        if (topic.id === topicId) {
-          return {
-            ...topic,
-            replies: [...topic.replies, newReply]
-          };
-        }
-        return topic;
-      }));
-      setNewReply('');
+  const handleAddReply = async (topicId) => {
+    if (!newReply.trim()) {
+      window.alert("Please enter a valid reply.");
+      return;
     }
+
+    try {
+      const response = await fetch('http://localhost:5500/api/answers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          questionID: topicId,
+          answer: newReply,  // Send the reply text
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update the replies for the specific topic
+        setReplies(prevReplies => ({
+          ...prevReplies,
+          [topicId]: [...(prevReplies[topicId] || []), { answer: data.answer }],  // Add the new reply
+        }));
+      } else {
+        window.alert(data.message || "Failed to add reply.");
+      }
+    } catch (error) {
+      console.error("Error during adding reply:", error);
+      window.alert("An error occurred while posting the reply.");
+    }
+
+    setNewReply('');  // Clear input field after submission
   };
 
   // Toggle the visibility of replies
   const handleToggleReplies = (topicId) => {
-    setExpandedTopicId(expandedTopicId === topicId ? null : topicId); // Toggle visibility
+    if (expandedTopicId === topicId) {
+      setExpandedTopicId(null);  // Hide replies if they are already expanded
+    } else {
+      setExpandedTopicId(topicId);  // Show replies for the selected topic
+      fetchReplies(topicId);  // Fetch replies when expanding
+    }
   };
 
   return (
     <View style={styles.container}>
-      
+      <Text style={styles.title}>Discussion Zone</Text>
+
+      {/* Input for creating new topic */}
+      <View style={styles.post}>
+        <TextInput
+          style={styles.input}
+          placeholder="Ask a question..."
+          value={newTopic}
+          onChangeText={setNewTopic}
+        />
+        <TouchableOpacity style={styles.createButton} onPress={handleAddTopic}>
+          <Text style={styles.createButtonText}>Post</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* List of Discussion Topics */}
-      <Text style={styles.title}>Discussion Zone</Text>
-      <View style={styles.post}>
-      <TextInput
-        style={styles.input}
-        placeholder="Ask a question..."
-        value={newTopic}
-        onChangeText={setNewTopic}
-      />
-      <TouchableOpacity style={styles.createButton} onPress={handleAddTopic}>
-        <Text style={styles.createButtonText}>Post</Text>
-      </TouchableOpacity>
-      </View>
       <FlatList
         data={topics}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.id.toString()}  // Ensure the id is a string
         renderItem={({ item }) => (
           <View style={styles.topicCard}>
-            <Text style={styles.topicTitle}>{item.title}</Text>
+            <Text style={styles.topicTitle}>{item.question}</Text>
+
             <TouchableOpacity
               style={styles.viewRepliesButton}
-              onPress={() => handleToggleReplies(item.id)} // Toggle replies visibility
+              onPress={() => handleToggleReplies(item.id)}  // Toggle replies visibility
             >
               <Text style={styles.viewRepliesText}>
                 {expandedTopicId === item.id ? 'Hide Replies' : 'View Replies'}
@@ -85,11 +175,16 @@ const DiscussionZone = () => {
             {/* Show replies if the topic is expanded */}
             {expandedTopicId === item.id && (
               <View style={styles.repliesContainer}>
-                {item.replies.map((reply, index) => (
-                  <View key={index} style={styles.replyCard}>
-                    <Text style={styles.replyText}>{reply}</Text>
-                  </View>
-                ))}
+                {replies[item.id] && replies[item.id].length > 0 ? (
+                  replies[item.id].map((reply, index) => (
+                    <View key={index} style={styles.replyCard}>
+                      <Text style={styles.replyText}>{reply.answer}</Text>  {/* Render the 'answer' */}
+                    </View>
+                  ))
+                ) : (
+                  <Text>No replies yet.</Text>
+                )}
+
                 {/* Input for adding a reply */}
                 <TextInput
                   style={styles.input}
@@ -108,9 +203,6 @@ const DiscussionZone = () => {
           </View>
         )}
       />
-      
-      {/* Input for Creating New Topic */}
-      
     </View>
   );
 };
@@ -121,16 +213,6 @@ const styles = StyleSheet.create({
     padding: 20,
     top: 40,
     backgroundColor: '#f0f4f7',
-  },
-  backButton: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#ccc',
-    borderRadius: 5,
-  },
-  backText: {
-    fontSize: 16,
-    textAlign: 'center',
   },
   title: {
     fontSize: 24,
@@ -205,24 +287,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#007BFF',
     padding: 12,
     borderRadius: 5,
-    marginTop: 20,
+    marginTop: 10,
     alignItems: 'center',
   },
   replyButtonText: {
     color: '#fff',
     fontSize: 16,
   },
-    post: {
-        backgroundColor: '#fff',
-        padding: 15,
-        marginBottom: 15,
-        borderRadius: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
 });
 
 export default DiscussionZone;
